@@ -63,7 +63,8 @@ class TrafficMeasure:
 class AndroidMeasure:
     def __init__(self, package: str):
         uid = self._get_uid(package)
-        logger.info(f"Package '{package}' uid = {uid}.")
+        pid = self._get_pid(package)
+        logger.info(f"Package '{package}' uid = {uid} pid = {pid}.")
 
         self.metric_names = ['network']
         self.metrics = [TrafficMeasure(uid)]
@@ -76,6 +77,9 @@ class AndroidMeasure:
             if match:
                 return int(match.group(1))
         raise ValueError(f'Package {package} not found.')
+
+    def _get_pid(self, package: str) -> int:
+        return int(_adb_shell(['pidof', package]))
 
     def start(self):
         for m in self.metrics:
