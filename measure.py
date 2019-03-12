@@ -1,6 +1,8 @@
 import logging
 import subprocess
 import re
+import threading
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,37 @@ class TrafficMeasure:
         if self._start_traffic < 0 or self._stop_traffic < 0:
             raise Exception('Did you run start() and stop() before?')
         return self._stop_traffic - self._start_traffic
+
+
+class Periodic:
+    def __init__(self, interval: int):
+        self._interval = interval
+        self._thread = None
+        self._stop = threading.Event()
+
+    def callback(self):
+        raise NotImplementedError('Please override it.')
+
+    def _run(self):
+        logger.info(f'Thread {threading.current_thread().name} started.')
+        while not self._stop.is_set():
+            self.callback()
+            time.sleep(self._interval)
+        logger.info(f'Thread {threading.current_thread().name} exited.')
+
+    def start(self):
+        if self._thread:
+            Exception('Already started.')
+        self._thread = threading.Thread(target=self._run)
+        self._stop.clear()
+        self._thread.start()
+
+    def stop(self):
+        if self._stop.is_set() or not self._thread:
+            raise Exception('Did you run start() before?')
+        self._stop.set()
+        self._thread.join()
+        self._thread = None
 
 
 class AndroidMeasure:
