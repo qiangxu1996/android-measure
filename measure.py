@@ -79,6 +79,8 @@ class AndroidMeasure:
         raise ValueError(f'Package {package} not found.')
 
     def _get_pid(self, package: str) -> int:
+        # pidof will fail if no pid is found, thus no check here
+        # assume only one pid will be found
         return int(_adb_shell(['pidof', package]))
 
     def start(self):
