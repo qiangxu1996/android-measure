@@ -1,6 +1,8 @@
+import logging
 import subprocess
 import re
-import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _adb_shell(args) -> str:
@@ -35,7 +37,7 @@ class TrafficMeasure:
         for line in output.splitlines():
             match = self._pattern.match(line)
             if match:
-                logging.debug(f'Traffic match: {line}')
+                logger.debug(f'Traffic match: {line}')
                 traffic += int(match.group(1))
                 traffic += int(match.group(2))
 
@@ -44,13 +46,13 @@ class TrafficMeasure:
     def start(self):
         self._start_traffic = self._measure()
         self._stop_traffic = -1
-        logging.info(f'uid {self._uid} start traffic: {self._start_traffic}')
+        logger.info(f'uid {self._uid} start traffic: {self._start_traffic}')
 
     def stop(self):
         if self._start_traffic < 0 or self._stop_traffic >= 0:
             raise Exception('Did you run start() before?')
         self._stop_traffic = self._measure()
-        logging.info(f'uid {self._uid} stop traffic: {self._start_traffic}')
+        logger.info(f'uid {self._uid} stop traffic: {self._start_traffic}')
 
     def collect(self):
         if self._start_traffic < 0 or self._stop_traffic < 0:
@@ -63,7 +65,7 @@ class AndroidMeasure:
         uid = self._get_uid(package)
         if not uid:
             raise ValueError(f'Package {package} not found.')
-        logging.info(f"Package '{package}' uid = {uid}.")
+        logger.info(f"Package '{package}' uid = {uid}.")
 
         self.metric_names = ['network']
         self.metrics = [TrafficMeasure(uid)]
