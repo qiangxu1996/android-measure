@@ -63,8 +63,6 @@ class TrafficMeasure:
 class AndroidMeasure:
     def __init__(self, package: str):
         uid = self._get_uid(package)
-        if not uid:
-            raise ValueError(f'Package {package} not found.')
         logger.info(f"Package '{package}' uid = {uid}.")
 
         self.metric_names = ['network']
@@ -77,7 +75,7 @@ class AndroidMeasure:
             match = pattern.fullmatch(line)
             if match:
                 return int(match.group(1))
-        return 0
+        raise ValueError(f'Package {package} not found.')
 
     def start(self):
         for m in self.metrics:
