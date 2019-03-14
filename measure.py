@@ -27,7 +27,6 @@ class TrafficMeasure:
             (\d+)           # tx_bytes
             ''', re.VERBOSE)
 
-        self._uid = uid
         self._start_traffic = -1
         self._stop_traffic = -1
 
@@ -48,13 +47,13 @@ class TrafficMeasure:
     def start(self):
         self._start_traffic = self._measure()
         self._stop_traffic = -1
-        logger.info(f'uid {self._uid} start traffic: {self._start_traffic}')
+        logger.info(f'Start traffic: {self._start_traffic}')
 
     def stop(self):
         if self._start_traffic < 0 or self._stop_traffic >= 0:
             raise Exception('Did you run start() before?')
         self._stop_traffic = self._measure()
-        logger.info(f'uid {self._uid} stop traffic: {self._start_traffic}')
+        logger.info(f'Stop traffic: {self._start_traffic}')
 
     def collect(self):
         if self._start_traffic < 0 or self._stop_traffic < 0:
