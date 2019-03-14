@@ -135,8 +135,7 @@ class MemMeasure(Periodic):
 class AndroidMeasure:
     def __init__(self, package: str):
         uid = self._get_uid(package)
-        pid = self._get_pid(package)
-        logger.info(f"Package '{package}' uid = {uid} pid = {pid}.")
+        logger.info(f"Package '{package}' uid = {uid}.")
 
         self._metric_names = ['network', 'cpu', 'memory']
         self._metrics = [
@@ -153,11 +152,6 @@ class AndroidMeasure:
             if match:
                 return int(match.group(1))
         raise ValueError(f'Package {package} not found.')
-
-    def _get_pid(self, package: str) -> int:
-        # pidof will fail if no pid is found, thus no check here
-        # assume only one pid will be found
-        return int(_adb_shell(['pidof', package]))
 
     def start(self):
         for m in self._metrics:
