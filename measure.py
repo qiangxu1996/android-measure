@@ -21,8 +21,38 @@ def _get_uid(package: str) -> int:
     raise ValueError(f'Package {package} not found.')
 
 
-class TrafficMeasure:
+class TwoPointMeasure:
+    def __init__(self):
+        self._start_data = None
+        self._stop_data = None
+
+    # TODO measure can have args or kwargs
+    def measure(self):
+        """
+        :return: must not be None and must can do subtraction
+        """
+        raise NotImplementedError('Please override it.')
+
+    def start(self):
+        self._start_data = self.measure()
+        self._stop_data = None
+        logger.info(f'Start measure: {self._start_data}')
+
+    def stop(self):
+        if self._start_data is None or self._stop_data is not None:
+            raise Exception('Did you run start() before?')
+        self._stop_data = self.measure()
+        logger.info(f'Stop measure: {self._stop_data}')
+
+    def collect(self):
+        if self._start_data is None or self._stop_data is None:
+            raise Exception('Did you run start() and stop() before?')
+        return self._stop_data - self._start_data
+
+
+class TrafficMeasure(TwoPointMeasure):
     def __init__(self, uid: int):
+        super().__init__()
         self._pattern = re.compile(
             r'''^
             \d+\            # idx
@@ -37,10 +67,7 @@ class TrafficMeasure:
             (\d+)           # tx_bytes
             ''', re.VERBOSE)
 
-        self._start_traffic = -1
-        self._stop_traffic = -1
-
-    def _measure(self) -> int:
+    def measure(self) -> int:
         output = _adb_shell(['cat', '/proc/net/xt_qtaguid/stats'])
         traffic = 0
 
@@ -53,22 +80,6 @@ class TrafficMeasure:
                 traffic += int(match.group(2))
 
         return traffic
-
-    def start(self):
-        self._start_traffic = self._measure()
-        self._stop_traffic = -1
-        logger.info(f'Start traffic: {self._start_traffic}')
-
-    def stop(self):
-        if self._start_traffic < 0 or self._stop_traffic >= 0:
-            raise Exception('Did you run start() before?')
-        self._stop_traffic = self._measure()
-        logger.info(f'Stop traffic: {self._start_traffic}')
-
-    def collect(self):
-        if self._start_traffic < 0 or self._stop_traffic < 0:
-            raise Exception('Did you run start() and stop() before?')
-        return self._stop_traffic - self._start_traffic
 
 
 class Periodic:
