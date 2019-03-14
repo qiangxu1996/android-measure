@@ -119,7 +119,7 @@ class BatteryMeasure(TwoPointMeasure):
                 uid = _abrv_to_uid(match.group(1))
                 if uid == self._uid:
                     logger.debug(f'Battery match: {line}')
-                    return float(match.group(2))
+                    return float(match.group(2))  # mAh
         return 0
 
 
