@@ -93,14 +93,57 @@ class Periodic:
         self._thread = None
 
 
+class CpuMeasure(Periodic):
+    def __init__(self, uid: int):
+        super().__init__(5)
+        self._uid = uid
+        self._data = []
+
+    def callback(self):
+        output = _adb_shell(['ps', '-u', str(self._uid), '-o', 'PCPU'])
+        pcpu = output.splitlines()
+        del pcpu[0]  # the title
+        pcpu = sum([float(p) for p in pcpu])
+        logger.debug(f'uid = {self._uid} %CPU = {pcpu}')
+        self._data.append(pcpu)
+
+    def collect(self):
+        return self._data
+
+
+class MemMeasure(Periodic):
+    def __init__(self, package: str):
+        super().__init__(5)
+        self._package = package
+        self._data = []
+        self._pattern = re.compile(r'\s*TOTAL:\s*(\d+)\s+TOTAL SWAP PSS:\s*\d+')
+
+    def callback(self):
+        output = _adb_shell(['dumpsys', 'meminfo', self._package])
+        for line in output.splitlines():
+            match = self._pattern.fullmatch(line)
+            if match:
+                logger.debug(f"'{self._package}': {line}")
+                self._data.append(int(match.group(1)))  # KB
+                return
+        raise Exception(f"No mem info found for '{self._package}'.")
+
+    def collect(self):
+        return self._data
+
+
 class AndroidMeasure:
     def __init__(self, package: str):
         uid = self._get_uid(package)
         pid = self._get_pid(package)
         logger.info(f"Package '{package}' uid = {uid} pid = {pid}.")
 
-        self._metric_names = ['network']
-        self._metrics = [TrafficMeasure(uid)]
+        self._metric_names = ['network', 'cpu', 'memory']
+        self._metrics = [
+            TrafficMeasure(uid),
+            CpuMeasure(uid),
+            MemMeasure(package)
+        ]
 
     def _get_uid(self, package: str) -> int:
         pattern = re.compile(r'\s*userId=(\d+)')
