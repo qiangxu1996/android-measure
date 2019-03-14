@@ -21,6 +21,29 @@ def _get_uid(package: str) -> int:
     raise ValueError(f'Package {package} not found.')
 
 
+_FIRST_ISOLATED_UID = 99000
+_FIRST_APPLICATION_UID = 10000
+_abrv_pattern = re.compile(r'u(\d+)([ias])(\d+)')
+
+
+def _abrv_to_uid(abrv: str) -> int:
+    # reference
+    # https://github.com/google/battery-historian/blob/master/packageutils/packageutils.go
+
+    match = _abrv_pattern.fullmatch(abrv)
+    if not match:
+        return int(abrv)
+
+    t = match.group(2)
+    app_id = int(match.group(3))
+    if t == 'i':
+        return app_id + _FIRST_ISOLATED_UID
+    elif t == 'a':
+        return app_id + _FIRST_APPLICATION_UID
+    else:  # type == 's'
+        return app_id
+
+
 class TwoPointMeasure:
     def __init__(self):
         self._start_data = None
@@ -80,6 +103,24 @@ class TrafficMeasure(TwoPointMeasure):
                 traffic += int(match.group(2))
 
         return traffic
+
+
+class BatteryMeasure(TwoPointMeasure):
+    def __init__(self, uid: int):
+        super().__init__()
+        self._uid = uid
+        self._pattern = re.compile(r'\s*Uid ([0-9a-z]+): ([0-9.]+)')
+
+    def measure(self) -> float:
+        output = _adb_shell(['dumpsys', 'batterystats'])
+        for line in output.splitlines():
+            match = self._pattern.match(line)
+            if match:
+                uid = _abrv_to_uid(match.group(1))
+                if uid == self._uid:
+                    logger.debug(f'Battery match: {line}')
+                    return float(match.group(2))
+        return 0
 
 
 class Periodic:
@@ -158,11 +199,12 @@ class AndroidMeasure:
         uid = _get_uid(package)
         logger.info(f"Package '{package}' uid = {uid}.")
 
-        self._metric_names = ['network', 'cpu', 'memory']
+        self._metric_names = ['network', 'cpu', 'memory', 'battery']
         self._metrics = [
             TrafficMeasure(uid),
             CpuMeasure(uid),
-            MemMeasure(package)
+            MemMeasure(package),
+            BatteryMeasure(uid),
         ]
 
     def start(self):
