@@ -11,6 +11,16 @@ def _adb_shell(args) -> str:
     return subprocess.check_output(['adb', 'shell'] + args, encoding='utf-8')
 
 
+def _get_uid(package: str) -> int:
+    pattern = re.compile(r'\s*userId=(\d+)')
+    output = _adb_shell(['dumpsys', 'package', package])
+    for line in output.splitlines():
+        match = pattern.fullmatch(line)
+        if match:
+            return int(match.group(1))
+    raise ValueError(f'Package {package} not found.')
+
+
 class TrafficMeasure:
     def __init__(self, uid: int):
         self._pattern = re.compile(
@@ -134,7 +144,7 @@ class MemMeasure(Periodic):
 
 class AndroidMeasure:
     def __init__(self, package: str):
-        uid = self._get_uid(package)
+        uid = _get_uid(package)
         logger.info(f"Package '{package}' uid = {uid}.")
 
         self._metric_names = ['network', 'cpu', 'memory']
@@ -143,15 +153,6 @@ class AndroidMeasure:
             CpuMeasure(uid),
             MemMeasure(package)
         ]
-
-    def _get_uid(self, package: str) -> int:
-        pattern = re.compile(r'\s*userId=(\d+)')
-        output = _adb_shell(['dumpsys', 'package', package])
-        for line in output.splitlines():
-            match = pattern.fullmatch(line)
-            if match:
-                return int(match.group(1))
-        raise ValueError(f'Package {package} not found.')
 
     def start(self):
         for m in self._metrics:
