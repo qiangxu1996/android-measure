@@ -1,3 +1,10 @@
+## Requirement
+
+- Python 3.6+
+- adb
+
+Target require Android 5+.
+
 ## Usage
 
 ```python
