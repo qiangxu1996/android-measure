@@ -99,8 +99,8 @@ class AndroidMeasure:
         pid = self._get_pid(package)
         logger.info(f"Package '{package}' uid = {uid} pid = {pid}.")
 
-        self.metric_names = ['network']
-        self.metrics = [TrafficMeasure(uid)]
+        self._metric_names = ['network']
+        self._metrics = [TrafficMeasure(uid)]
 
     def _get_uid(self, package: str) -> int:
         pattern = re.compile(r'\s*userId=(\d+)')
@@ -117,15 +117,15 @@ class AndroidMeasure:
         return int(_adb_shell(['pidof', package]))
 
     def start(self):
-        for m in self.metrics:
+        for m in self._metrics:
             m.start()
 
     def stop(self):
-        for m in self.metrics:
+        for m in self._metrics:
             m.stop()
 
     def collect(self):
         data = {}
-        for n, m in zip(self.metric_names, self.metrics):
+        for n, m in zip(self._metric_names, self._metrics):
             data[n] = m.collect()
         return data
