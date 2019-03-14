@@ -74,6 +74,7 @@ class Periodic:
         logger.info(f'Thread {threading.current_thread().name} started.')
         while not self._stop.is_set():
             self.callback()
+            # TODO check if callback time is significant
             time.sleep(self._interval)
         logger.info(f'Thread {threading.current_thread().name} exited.')
 
