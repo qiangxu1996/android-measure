@@ -3,7 +3,9 @@
 - Python 3.6+
 - adb
 
-Target require Android 5+.
+Target requires Android 5+.
+
+To measure battery usage, the USB cable need to be unplugged e.g. use adb over WiFi.
 
 ## Usage
 
