@@ -178,7 +178,7 @@ class MemMeasure(Periodic):
         super().__init__(5)
         self._package = package
         self._data = []
-        self._pattern = re.compile(r'\s*TOTAL:\s*(\d+)\s+TOTAL SWAP PSS:\s*\d+')
+        self._pattern = re.compile(r'\s*TOTAL:\s*(\d+)\s+TOTAL SWAP.*:\s*\d+')
 
     def callback(self):
         output = _adb_shell(['dumpsys', 'meminfo', self._package])
