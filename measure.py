@@ -44,85 +44,6 @@ def _abrv_to_uid(abrv: str) -> int:
         return app_id
 
 
-class TwoPointMeasure:
-    def __init__(self):
-        self._start_data = None
-        self._stop_data = None
-
-    # TODO measure can have args or kwargs
-    def measure(self):
-        """
-        :return: must not be None and must can do subtraction
-        """
-        raise NotImplementedError('Please override it.')
-
-    def start(self):
-        self._start_data = self.measure()
-        self._stop_data = None
-        logger.info(f'Start measure: {self._start_data}')
-
-    def stop(self):
-        if self._start_data is None or self._stop_data is not None:
-            raise Exception('Did you run start() before?')
-        self._stop_data = self.measure()
-        logger.info(f'Stop measure: {self._stop_data}')
-
-    def collect(self):
-        if self._start_data is None or self._stop_data is None:
-            raise Exception('Did you run start() and stop() before?')
-        return self._stop_data - self._start_data
-
-
-class TrafficMeasure(TwoPointMeasure):
-    def __init__(self, uid: int):
-        super().__init__()
-        self._pattern = re.compile(
-            r'''^
-            \d+\            # idx
-            \w+\            # iface
-            0x[0-9a-f]+\    # acct_tag_hex
-            ''' +
-            str(uid) +      # uid_tag_int
-            r'''\ 
-            \d+\            # cnt_set
-            (\d+)\          # rx_bytes
-            \d+\            # rx_packets
-            (\d+)           # tx_bytes
-            ''', re.VERBOSE)
-
-    def measure(self) -> int:
-        output = _adb_shell(['cat', '/proc/net/xt_qtaguid/stats'])
-        traffic = 0
-
-        # it is possible that no line matches
-        for line in output.splitlines():
-            match = self._pattern.match(line)
-            if match:
-                logger.debug(f'Traffic match: {line}')
-                traffic += int(match.group(1))
-                traffic += int(match.group(2))
-
-        return traffic
-
-
-class BatteryMeasure(TwoPointMeasure):
-    def __init__(self, uid: int):
-        super().__init__()
-        self._uid = uid
-        self._pattern = re.compile(r'\s*Uid ([0-9a-z]+): ([0-9.]+)')
-
-    def measure(self) -> float:
-        output = _adb_shell(['dumpsys', 'batterystats'])
-        for line in output.splitlines():
-            match = self._pattern.match(line)
-            if match:
-                uid = _abrv_to_uid(match.group(1))
-                if uid == self._uid:
-                    logger.debug(f'Battery match: {line}')
-                    return float(match.group(2))  # mAh
-        return 0
-
-
 class Periodic:
     def __init__(self, interval: int):
         self._interval = interval
@@ -153,6 +74,68 @@ class Periodic:
         self._stop.set()
         self._thread.join()
         self._thread = None
+
+
+class TrafficMeasure(Periodic):
+    def __init__(self, uid: int):
+        super().__init__(5)
+        self._data = []
+
+        self._pattern = re.compile(
+            r'''^
+            \d+\            # idx
+            \w+\            # iface
+            0x[0-9a-f]+\    # acct_tag_hex
+            ''' +
+            str(uid) +      # uid_tag_int
+            r'''\ 
+            \d+\            # cnt_set
+            (\d+)\          # rx_bytes
+            \d+\            # rx_packets
+            (\d+)           # tx_bytes
+            ''', re.VERBOSE)
+
+    def callback(self):
+        output = _adb_shell(['cat', '/proc/net/xt_qtaguid/stats'])
+        traffic = 0
+
+        # it is possible that no line matches
+        for line in output.splitlines():
+            match = self._pattern.match(line)
+            if match:
+                logger.debug(f'Traffic match: {line}')
+                traffic += int(match.group(1))
+                traffic += int(match.group(2))
+
+        self._data.append(traffic)
+
+    def collect(self):
+        return self._data
+
+
+class BatteryMeasure(Periodic):
+    def __init__(self, uid: int):
+        super().__init__(5)
+        self._uid = uid
+        self._data = []
+        self._pattern = re.compile(r'\s*Uid ([0-9a-z]+): ([0-9.]+)')
+
+    def callback(self):
+        output = _adb_shell(['dumpsys', 'batterystats'])
+        battery = 0
+
+        for line in output.splitlines():
+            match = self._pattern.match(line)
+            if match:
+                uid = _abrv_to_uid(match.group(1))
+                if uid == self._uid:
+                    logger.debug(f'Battery match: {line}')
+                    battery += float(match.group(2))  # mAh
+
+        self._data.append(battery)
+
+    def collect(self):
+        return self._data
 
 
 class CpuMeasure(Periodic):
