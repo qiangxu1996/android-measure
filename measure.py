@@ -76,10 +76,26 @@ class Periodic:
         self._thread = None
 
 
-class TrafficMeasure(Periodic):
+class TimestampedMeasure(Periodic):
+    def __init__(self, interval: int):
+        super().__init__(interval)
+        self._data = []
+
+    def measure(self):
+        raise NotImplementedError('Please override it.')
+
+    def callback(self):
+        now = time.time()
+        result = self.measure()
+        self._data.append((now, result))
+
+    def collect(self):
+        return self._data
+
+
+class TrafficMeasure(TimestampedMeasure):
     def __init__(self, uid: int):
         super().__init__(5)
-        self._data = []
 
         self._pattern = re.compile(
             r'''^
@@ -95,7 +111,7 @@ class TrafficMeasure(Periodic):
             (\d+)           # tx_bytes
             ''', re.VERBOSE)
 
-    def callback(self):
+    def measure(self):
         output = _adb_shell(['cat', '/proc/net/xt_qtaguid/stats'])
         traffic = 0
 
@@ -107,20 +123,16 @@ class TrafficMeasure(Periodic):
                 traffic += int(match.group(1))
                 traffic += int(match.group(2))
 
-        self._data.append(traffic)
-
-    def collect(self):
-        return self._data
+        return traffic
 
 
-class BatteryMeasure(Periodic):
+class BatteryMeasure(TimestampedMeasure):
     def __init__(self, uid: int):
         super().__init__(5)
         self._uid = uid
-        self._data = []
         self._pattern = re.compile(r'\s*Uid ([0-9a-z]+): ([0-9.]+)')
 
-    def callback(self):
+    def measure(self):
         output = _adb_shell(['dumpsys', 'batterystats'])
         battery = 0
 
@@ -132,49 +144,37 @@ class BatteryMeasure(Periodic):
                     logger.debug(f'Battery match: {line}')
                     battery += float(match.group(2))  # mAh
 
-        self._data.append(battery)
-
-    def collect(self):
-        return self._data
+        return battery
 
 
-class CpuMeasure(Periodic):
+class CpuMeasure(TimestampedMeasure):
     def __init__(self, uid: int):
         super().__init__(5)
         self._uid = uid
-        self._data = []
 
-    def callback(self):
+    def measure(self):
         output = _adb_shell(['ps', '-u', str(self._uid), '-o', 'PCPU'])
         pcpu = output.splitlines()
         del pcpu[0]  # the title
         pcpu = sum([float(p) for p in pcpu])
         logger.debug(f'uid = {self._uid} %CPU = {pcpu}')
-        self._data.append(pcpu)
-
-    def collect(self):
-        return self._data
+        return pcpu
 
 
-class MemMeasure(Periodic):
+class MemMeasure(TimestampedMeasure):
     def __init__(self, package: str):
         super().__init__(5)
         self._package = package
-        self._data = []
         self._pattern = re.compile(r'\s*TOTAL:\s*(\d+)\s+TOTAL SWAP.*:\s*\d+')
 
-    def callback(self):
+    def measure(self):
         output = _adb_shell(['dumpsys', 'meminfo', self._package])
         for line in output.splitlines():
             match = self._pattern.fullmatch(line)
             if match:
                 logger.debug(f"'{self._package}': {line}")
-                self._data.append(int(match.group(1)))  # KB
-                return
+                return int(match.group(1))  # KB
         raise Exception(f"No mem info found for '{self._package}'.")
-
-    def collect(self):
-        return self._data
 
 
 class AndroidMeasure:
