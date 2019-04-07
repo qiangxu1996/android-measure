@@ -45,7 +45,7 @@ def _abrv_to_uid(abrv: str) -> int:
 
 
 class Periodic:
-    def __init__(self, interval: int):
+    def __init__(self, interval=1):
         self._interval = interval
         self._thread = None
         self._stop = threading.Event()
@@ -75,10 +75,13 @@ class Periodic:
         self._thread.join()
         self._thread = None
 
+    def set_interval(self, interval: int):
+        self._interval = interval
+
 
 class TimestampedMeasure(Periodic):
-    def __init__(self, interval: int):
-        super().__init__(interval)
+    def __init__(self):
+        super().__init__()
         self._data = []
 
     def measure(self):
@@ -95,7 +98,7 @@ class TimestampedMeasure(Periodic):
 
 class TrafficMeasure(TimestampedMeasure):
     def __init__(self, uid: int):
-        super().__init__(5)
+        super().__init__()
 
         self._pattern = re.compile(
             r'''^
@@ -128,7 +131,7 @@ class TrafficMeasure(TimestampedMeasure):
 
 class BatteryMeasure(TimestampedMeasure):
     def __init__(self, uid: int):
-        super().__init__(5)
+        super().__init__()
         self._uid = uid
         self._pattern = re.compile(r'\s*Uid ([0-9a-z]+): ([0-9.]+)')
 
@@ -149,7 +152,7 @@ class BatteryMeasure(TimestampedMeasure):
 
 class CpuMeasure(TimestampedMeasure):
     def __init__(self, uid: int):
-        super().__init__(5)
+        super().__init__()
         self._uid = uid
 
     def measure(self):
@@ -163,7 +166,7 @@ class CpuMeasure(TimestampedMeasure):
 
 class MemMeasure(TimestampedMeasure):
     def __init__(self, package: str):
-        super().__init__(5)
+        super().__init__()
         self._package = package
         self._pattern = re.compile(r'\s*TOTAL:\s*(\d+)\s+TOTAL SWAP.*:\s*\d+')
 
